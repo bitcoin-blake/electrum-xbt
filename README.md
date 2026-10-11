@@ -1,170 +1,68 @@
-# Electrum - Lightweight Bitcoin client
+# Electrum-XBT
+
+Lightweight wallet for the Bitcoin BLAKE2b chain (XBT), a fork of
+[Electrum](https://github.com/spesmilo/electrum).
+
+The BLAKE2b chain is the Bitcoin Knots hardfork that moved proof of work to
+BLAKE2b at mainnet height 961,640 (testnet4 150,308). A wallet for it needs two
+things Electrum does not have, and this fork adds exactly those:
+
+- **Headers.** Blocks after the fork carry a 164-byte header v2 hashed with
+  BLAKE2b. `electrum/blake.py` decodes and hashes them and is checked against
+  Knots' own `block_header_v2.json`. The header chain requires v2 at or above
+  the fork height and refuses it below, so the client cannot follow the SHA256d
+  chain by accident.
+- **Signatures.** Every signature opts in to `SIGHASH_UNIFIED` (hash type
+  `0x21`), the chain's replay-protected signature hash. `electrum/unified.py`
+  implements it for all four script types and passes Knots' 166 vectors.
+  A transaction signed here is invalid on the SHA256d chain and vice versa.
+
+Everything else is Electrum: seeds, wallets, servers, the GUI.
+
+## Status
+
+Testnet4 first. Mainnet constants are in place but its server list is empty
+until a public server exists, so `electrum-xbt` on mainnet will not connect.
+
+- Data directory is `~/.electrum-xbt`, separate from any Electrum install.
+- Hardware wallets cannot sign the unified sighash; use software wallets.
+- Lightning is untested on this chain and its signatures are not replay-protected.
+- Coinbase maturity on the BLAKE2b chain is 6,480 blocks under Knots' policy
+  (PR 419); the wallet does not model that yet.
+
+## Run from source (testnet4)
+
+You need a server that speaks the Electrum protocol for the BLAKE2b chain.
+[electrs on the blake2b branch](https://github.com/jasonsopko/electrs) works
+against a Knots or Plumb node.
 
 ```
-Licence: MIT Licence
-Author: Thomas Voegtlin
-Language: Python (>= 3.10)
-Homepage: https://electrum.org/
+python3 -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/pip install cryptography pyqt6
+.venv/bin/python run_electrum --testnet4 daemon -d -1 -s 127.0.0.1:50001:t
+.venv/bin/python run_electrum --testnet4 create
+.venv/bin/python run_electrum --testnet4 load_wallet
+.venv/bin/python run_electrum --testnet4 getunusedaddress
 ```
 
-[![Build Status](https://github.com/spesmilo/electrum/actions/workflows/builds.yml/badge.svg?branch=master)](https://github.com/spesmilo/electrum/actions/workflows/builds.yml)
-[![Test coverage statistics](https://coveralls.io/repos/github/spesmilo/electrum/badge.svg?branch=master)](https://coveralls.io/github/spesmilo/electrum?branch=master)
-[![Help translate Electrum online](https://d322cqt584bo4o.cloudfront.net/electrum/localized.svg)](https://crowdin.com/project/electrum)
+`electrum_ecc` needs libsecp256k1. If the wheel does not build, set
+`ELECTRUM_ECC_DONT_COMPILE=1` and copy a `libsecp256k1.so` into the
+`electrum_ecc` package directory.
 
+For the GUI: `.venv/bin/python run_electrum --testnet4 -1 -s 127.0.0.1:50001:t`.
 
-## Getting started
-
-_(If you've come here looking to simply run Electrum,
-[you may download it here](https://electrum.org/#download).)_
-
-Electrum itself is pure Python, and so are most of the required dependencies,
-but not everything. The following sections describe how to run from source, but here
-is a TL;DR:
+## Tests
 
 ```
-$ sudo apt-get install libsecp256k1-dev
-$ ELECTRUM_ECC_DONT_COMPILE=1 python3 -m pip install --user ".[gui,crypto]"
+.venv/bin/python -m unittest tests.test_blake tests.test_unified tests.test_blockchain tests.test_transaction
 ```
 
-### Not pure-python dependencies
+## Upstream
 
-#### Qt GUI
+This fork tracks spesmilo/electrum. The chain-specific code is `electrum/blake.py`,
+`electrum/unified.py`, the fork heights in `electrum/constants.py`, the header
+slot handling in `electrum/blockchain.py` and `electrum/interface.py`, and the
+sighash hooks in `electrum/transaction.py`.
 
-If you want to use the Qt interface, install the Qt dependencies:
-```
-$ sudo apt-get install python3-pyqt6
-```
-
-#### QR code scanning
-
-QR code decoding uses [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp/).
-To build the library, install CMake and a C++20 compiler and run:
-```
-$ ./contrib/make_zxing.sh
-```
-
-Camera scanning also requires Qt Multimedia. It is included in the PyQt6 pip
-package; when using Debian/Ubuntu packages, install it separately:
-```
-$ sudo apt-get install python3-pyqt6.qtmultimedia
-```
-
-#### libsecp256k1
-
-For elliptic curve operations,
-[libsecp256k1](https://github.com/bitcoin-core/secp256k1)
-is a required dependency.
-
-If you "pip install" Electrum, by default libsecp will get compiled locally,
-as part of the `electrum-ecc` dependency. This can be opted-out of,
-by setting the `ELECTRUM_ECC_DONT_COMPILE=1` environment variable.
-For the compilation to work, besides a C compiler, you need at least:
-```
-$ sudo apt-get install automake libtool
-```
-If you opt out of the compilation, you need to provide libsecp in another way, e.g.:
-```
-$ sudo apt-get install libsecp256k1-dev
-```
-
-#### cryptography
-
-Due to the need for fast symmetric ciphers,
-[cryptography](https://github.com/pyca/cryptography) is required.
-Install from your package manager (or from pip):
-```
-$ sudo apt-get install python3-cryptography
-```
-
-#### hardware-wallet support
-
-If you would like hardware wallet support,
-[see this](https://github.com/spesmilo/electrum-docs/blob/master/hardware-linux.rst).
-
-
-### Running from tar.gz
-
-If you downloaded the official package (tar.gz), you can run
-Electrum from its root directory without installing it on your
-system; all the pure python dependencies are included in the 'packages'
-directory. To run Electrum from its root directory, just do:
-```
-$ ./run_electrum
-```
-
-You can also install Electrum on your system, by running this command:
-```
-$ sudo apt-get install python3-setuptools python3-pip
-$ python3 -m pip install --user .
-```
-
-This will download and install the Python dependencies used by
-Electrum instead of using the 'packages' directory.
-It will also place an executable named `electrum` in `~/.local/bin`,
-so make sure that is on your `PATH` variable.
-
-
-### Development version (git clone)
-
-_(For OS-specific instructions, see [here for Windows](contrib/build-wine/README_windows.md),
-and [for macOS](contrib/osx/README_macos.md))_
-
-Check out the code from GitHub:
-```
-$ git clone https://github.com/spesmilo/electrum.git
-$ cd electrum
-$ git submodule update --init
-```
-
-Run install (this should install dependencies):
-```
-$ python3 -m pip install --user -e .
-```
-
-Create translations (optional):
-```
-$ sudo apt-get install gettext
-$ ./contrib/locale/build_locale.sh electrum/locale/locale electrum/locale/locale
-```
-
-Finally, to start Electrum:
-```
-$ ./run_electrum
-```
-
-### Run tests
-
-Run unit tests with `pytest`:
-```
-$ pytest tests -v
-```
-(can be parallelized with `-n auto` option, using [`pytest-xdist`](https://github.com/pytest-dev/pytest-xdist) plugin)
-
-To run a single file, specify it directly like this:
-```
-$ pytest tests/test_bitcoin.py -v
-```
-
-## Creating Binaries
-
-- [Linux (tarball)](contrib/build-linux/sdist/README.md)
-- [Linux (AppImage)](contrib/build-linux/appimage/README.md)
-- [macOS](contrib/osx/README.md)
-- [Windows](contrib/build-wine/README.md)
-- [Android](contrib/android/Readme.md)
-
-
-## Contributing
-
-Any help testing the software, reporting or fixing bugs, reviewing pull requests
-and recent changes, writing tests, or helping with outstanding issues is very welcome.
-Implementing new features, or improving/refactoring the codebase, is of course
-also welcome, but to avoid wasted effort, especially for larger changes,
-we encourage discussing these on the issue tracker or IRC first.
-
-Besides [GitHub](https://github.com/spesmilo/electrum),
-most communication about Electrum development happens on IRC, in the
-`#electrum` channel on Libera Chat. The easiest way to participate on IRC is
-with the web client, [web.libera.chat](https://web.libera.chat/#electrum).
-
-Please improve translations on [Crowdin](https://crowdin.com/project/electrum).
+Electrum is licensed under the MIT licence; see `LICENCE`.
