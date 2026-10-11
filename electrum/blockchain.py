@@ -440,7 +440,6 @@ class Blockchain(Logger):
         headers = split_headers(data)
         start_height = index * CHUNK_SIZE
         prev_hash = self.get_hash(start_height - 1)
-        target = self.get_target(index-1)
         for i, raw_header in enumerate(headers):
             height = start_height + i
             try:
@@ -448,6 +447,7 @@ class Blockchain(Logger):
             except MissingHeader:
                 expected_header_hash = None
             header = deserialize_header(raw_header, index*CHUNK_SIZE + i)
+            target = self.target_for_height(height)
             self.verify_header(header, prev_hash, target, expected_header_hash)
             prev_hash = hash_header(header)
 
@@ -643,6 +643,29 @@ class Blockchain(Logger):
                 raise MissingHeader(height)
             return hash_header(header)
 
+    @classmethod
+    def apply_blake2b_target_shift(cls, target: int) -> int:
+        """Knots pow.cpp ApplyBlake2bTargetShift, on a target rather than nBits."""
+        shift = constants.net.BLAKE2B_TARGET_SHIFT
+        if target > (MAX_TARGET >> shift):
+            new_target = MAX_TARGET
+        else:
+            new_target = target << shift
+        return cls.bits_to_target(cls.target_to_bits(new_target))
+
+    def target_for_height(self, height: int) -> int:
+        """The target a header at `height` must carry. Bitcoin's per-chunk
+        target, except that from the BLAKE2b fork block to the end of its chunk
+        the target is shifted (Knots GetNextWorkRequired). Later chunks retarget
+        from the shifted bits, so they need no special case."""
+        target = self.get_target(height // CHUNK_SIZE - 1)
+        fork_height = constants.net.FORK_HEIGHT
+        if (fork_height is not None and height >= fork_height
+                and height // CHUNK_SIZE == fork_height // CHUNK_SIZE
+                and not constants.net.TESTNET):
+            target = self.apply_blake2b_target_shift(target)
+        return target
+
     def get_target(self, index: int) -> int:
         # compute target from chunk x, used in chunk x+1
         if constants.net.TESTNET:
@@ -708,8 +731,7 @@ class Blockchain(Logger):
 
     def chainwork_of_header_at_height(self, height: int) -> int:
         """work done by single header at given height"""
-        chunk_idx = height // CHUNK_SIZE - 1
-        target = self.get_target(chunk_idx)
+        target = self.target_for_height(height)
         work = ((2 ** 256 - target - 1) // (target + 1)) + 1
         return work
 
@@ -755,7 +777,7 @@ class Blockchain(Logger):
         if prev_hash != header.get('prev_block_hash'):
             return False
         try:
-            target = self.get_target(height // CHUNK_SIZE - 1)
+            target = self.target_for_height(height)
         except MissingHeader:
             return False
         try:

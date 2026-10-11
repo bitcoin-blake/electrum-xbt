@@ -81,6 +81,10 @@ class AbstractNet:
     # confirmations by consensus; node policy and the Knots wallet apply
     # `depth` to every coinbase. None = plain 100-block maturity.
     LONG_COINBASE_MATURITY: Optional[Tuple[int, int, int]] = None
+    # Knots pow.cpp ApplyBlake2bTargetShift: the first BLAKE2b block's target is
+    # the SHA256d one shifted left this many bits (capped at powLimit), since a
+    # BLAKE2b hash per second is a different amount of work.
+    BLAKE2B_TARGET_SHIFT: int = 22
     BIP44_COIN_TYPE: int
     LN_REALM_BYTE: int
     DEFAULT_PORTS: Mapping[str, str]

@@ -21,14 +21,27 @@ Everything else is Electrum: seeds, wallets, servers, the GUI.
 
 ## Status
 
-Testnet4 first. Mainnet constants are in place but its server list is empty
-until a public server exists, so `electrum-xbt` on mainnet will not connect.
+**Testnet4 is live.** A public server is in the default list and the wallet
+has been used for real spends on the BLAKE2b testnet4.
+
+**Mainnet is wired but switched off.** The code is complete for mainnet: fork
+height, the target shift at the fork block, retargets from the shifted bits,
+checkpoints up to just below the fork, coinbase maturity. It is verified
+against the chain's own headers (`tests/test_mainnet_pow.py` replays mainnet
+chunk 477 across the fork and the two retargets after it). What is missing is
+a public mainnet server, so the mainnet server list is empty and
+`electrum-xbt` on mainnet will not connect. Nobody should put real coins
+through it until a server exists and a first small spend has been made and
+written up here.
 
 - Data directory is `~/.electrum-xbt`, separate from any Electrum install.
 - Hardware wallets cannot sign the unified sighash; use software wallets.
-- Lightning is untested on this chain and its signatures are not replay-protected.
-- Coinbase maturity on the BLAKE2b chain is 6,480 blocks under Knots' policy
-  (PR 419); the wallet does not model that yet.
+- Lightning is present, untested on this chain and has no peers on it; its
+  channel signatures are not replay-protected.
+- Coinbase maturity follows Knots PR 419: 6,480 blocks on mainnet and 6,705
+  on testnet4 by node policy, which is what the wallet uses for its immature
+  balance and coin selection.
+- Fiat rates are off: the sources quote BTC, not XBT.
 
 ## Run from source (testnet4)
 
