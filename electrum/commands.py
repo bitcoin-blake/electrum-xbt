@@ -969,7 +969,7 @@ class Commands(Logger):
         """Create an on-chain transaction.
 
         arg:str:destination:Bitcoin address, contact or alias
-        arg:decimal_or_max:amount:Amount to be sent (in BTC). Type '!' to send the maximum available.
+        arg:decimal_or_max:amount:Amount to be sent (in XBT). Type '!' to send the maximum available.
         arg:decimal:fee:Transaction fee (absolute, in BTC)
         arg:decimal:feerate:Transaction fee rate (in sat/vbyte)
         arg:str:from_addr:Source address (must be a wallet address; use sweep to spend from non-wallet address)
@@ -1000,7 +1000,7 @@ class Commands(Logger):
                         unsigned=False, rbf=True, password=None, locktime=None, addtransaction=False, wallet: Abstract_Wallet = None):
         """Create a multi-output transaction.
 
-        arg:json:outputs:json list of ["address", "amount in BTC"]
+        arg:json:outputs:json list of ["address", "amount in XBT"]
         arg:bool:rbf:Whether to signal opt-in Replace-By-Fee in the transaction (true/false)
         arg:decimal:fee:Transaction fee (absolute, in BTC)
         arg:decimal:feerate:Transaction fee rate (in sat/vbyte)
@@ -1791,8 +1791,8 @@ class Commands(Logger):
         Open a lightning channel with a peer
 
         arg:str:connection_string:Lightning network node ID or network address
-        arg:decimal_or_max:amount:funding amount (in BTC)
-        arg:decimal:push_amount:Push initial amount (in BTC)
+        arg:decimal_or_max:amount:funding amount (in XBT)
+        arg:decimal:push_amount:Push initial amount (in XBT)
         arg:bool:public:The channel will be announced
         arg:bool:zeroconf:request zeroconf channel
         """
@@ -2113,7 +2113,7 @@ class Commands(Logger):
 
         arg:str:from_scid:Short channel ID
         arg:str:dest_scid:Short channel ID
-        arg:decimal:amount:Amount (in BTC)
+        arg:decimal:amount:Amount (in XBT)
 
         """
         from .lnutil import ShortChannelID
@@ -2161,11 +2161,11 @@ class Commands(Logger):
     @command('wnpl')
     async def normal_swap(self, onchain_amount, lightning_amount, password=None, wallet: Abstract_Wallet = None):
         """
-        Normal submarine swap: send on-chain BTC, receive on Lightning.
+        Normal submarine swap: send on-chain XBT, receive on Lightning.
         Note: fees can change between the dryrun and the following swap request, causing the request to error and require a new dryrun.
 
-        arg:decimal_or_dryrun:lightning_amount:Amount to be received, in BTC. Set it to 'dryrun' to receive a value
-        arg:decimal_or_dryrun:onchain_amount:Amount to be sent, in BTC. Set it to 'dryrun' to receive a value
+        arg:decimal_or_dryrun:lightning_amount:Amount to be received, in XBT. Set it to 'dryrun' to receive a value
+        arg:decimal_or_dryrun:onchain_amount:Amount to be sent, in XBT. Set it to 'dryrun' to receive a value
         """
         sm = wallet.lnworker.swap_manager
         assert self.config.SWAPSERVER_NPUB or self.config.SWAPSERVER_URL, \
@@ -2214,8 +2214,8 @@ class Commands(Logger):
         Reverse submarine swap: send on Lightning, receive on-chain.
         Note: fees can change between the dryrun and the following swap request, causing the request to error and require a new dryrun.
 
-        arg:decimal_or_dryrun:lightning_amount:Amount to be sent, in BTC. Set it to 'dryrun' to receive a value
-        arg:decimal_or_dryrun:onchain_amount:Amount to be received, in BTC. Set it to 'dryrun' to receive a value
+        arg:decimal_or_dryrun:lightning_amount:Amount to be sent, in XBT. Set it to 'dryrun' to receive a value
+        arg:decimal_or_dryrun:onchain_amount:Amount to be received, in XBT. Set it to 'dryrun' to receive a value
         arg:decimal_or_dryrun:prepayment:Lightning payment required by the swap provider in order to cover their mining fees. This is included in lightning_amount. However, this part of the operation is not trustless; the provider is trusted to fail this payment if the swap fails.
         """
         sm = wallet.lnworker.swap_manager

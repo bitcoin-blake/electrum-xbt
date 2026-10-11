@@ -17,13 +17,15 @@ if TYPE_CHECKING:
 FEE_ETA_TARGETS = [1008, 144, 25, 10, 5, 2, 1]
 FEE_DEPTH_TARGETS = [10_000_000, 5_000_000, 2_000_000, 1_000_000,
                      800_000, 600_000, 400_000, 250_000, 100_000]
-FEERATE_STATIC_VALUES = [1000, 2000, 5000, 10000, 20000, 30000,
-                         50000, 70000, 100000, 150000, 200000, 300000]
+# Electrum-XBT: the BLAKE2b chain clears at 1 sat/vB with blocks far from
+# full, so the manual slider spans 1 to 100 sat/vB rather than 1 to 300.
+FEERATE_STATIC_VALUES = [1000, 1500, 2000, 3000, 5000, 7000,
+                         10000, 15000, 20000, 30000, 50000, 100000]
 
 # satoshi per kbyte
 FEERATE_MAX_DYNAMIC = 1500000
-FEERATE_WARNING_HIGH_FEE = 600000
-FEERATE_FALLBACK_STATIC_FEE = 150000
+FEERATE_WARNING_HIGH_FEE = 50000  # Electrum-XBT: 50 sat/vB is already fifty times the going rate
+FEERATE_FALLBACK_STATIC_FEE = 2000  # Electrum-XBT: used when the server gives no estimate; 2 sat/vB clears here
 FEERATE_REGTEST_STATIC_FEE = FEERATE_FALLBACK_STATIC_FEE  # hardcoded fee used on regtest
 FEERATE_MIN_RELAY = 100
 FEERATE_DEFAULT_RELAY = 1000  # conservative "min relay fee"
