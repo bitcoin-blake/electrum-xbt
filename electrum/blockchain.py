@@ -37,7 +37,12 @@ if TYPE_CHECKING:
     from .simple_config import SimpleConfig
 
 
-HEADER_SIZE = 80  # bytes
+# Bitcoin BLAKE2b chain: headers are 80 bytes before the fork and 164 bytes
+# (header v2, see blake.py) from the fork height on. The headers file stores
+# every header in a fixed 164-byte slot; legacy headers are zero-padded.
+from . import blake
+HEADER_SIZE = blake.HEADER_V2_SIZE  # bytes per slot in the headers file
+LEGACY_HEADER_SIZE = blake.LEGACY_HEADER_SIZE
 CHUNK_SIZE = 2016  # num headers in a difficulty retarget period
 
 # see https://github.com/bitcoin/bitcoin/blob/feedb9c84e72e4fff489810a2bbeec09bcda5763/src/chainparams.cpp#L76
@@ -53,6 +58,8 @@ class InvalidHeader(Exception):
 
 
 def serialize_header(header_dict: dict) -> bytes:
+    if header_dict['version'] & blake.VERSION_HEADER_V2_FLAG:
+        return blake.serialize_header_v2(header_dict)
     s = (
         int.to_bytes(header_dict['version'], length=4, byteorder="little", signed=False)
         + bfh(header_dict['prev_block_hash'])[::-1]
@@ -63,10 +70,42 @@ def serialize_header(header_dict: dict) -> bytes:
     return s
 
 
+def serialize_header_slot(header_dict: dict) -> bytes:
+    """Serialize into a fixed HEADER_SIZE slot for the headers file."""
+    raw = serialize_header(header_dict)
+    return raw + bytes(HEADER_SIZE - len(raw))
+
+
+def split_headers(data: bytes) -> List[bytes]:
+    """Split concatenated raw headers of mixed size (80 or 164 bytes) by their version bit."""
+    out = []
+    pos = 0
+    while pos < len(data):
+        size = blake.header_size(data[pos:pos+4])
+        raw = data[pos:pos+size]
+        if len(raw) != size:
+            raise InvalidHeader(f'truncated header at offset {pos}: {len(raw)} of {size} bytes')
+        out.append(raw)
+        pos += size
+    return out
+
+
+def headers_to_slots(headers: Sequence[bytes]) -> bytes:
+    return b''.join(raw + bytes(HEADER_SIZE - len(raw)) for raw in headers)
+
+
 def deserialize_header(s: bytes, height: int) -> dict:
     if not s:
         raise InvalidHeader('Invalid header: {}'.format(s))
-    if len(s) != HEADER_SIZE:
+    if blake.is_header_v2(s):
+        if len(s) != blake.HEADER_V2_SIZE:
+            raise InvalidHeader('Invalid header v2 length: {}'.format(len(s)))
+        return blake.deserialize_header_v2(s, height)
+    if len(s) == HEADER_SIZE:  # legacy header in a padded slot
+        if any(s[LEGACY_HEADER_SIZE:]):
+            raise InvalidHeader('Invalid legacy header: non-zero padding')
+        s = s[:LEGACY_HEADER_SIZE]
+    if len(s) != LEGACY_HEADER_SIZE:
         raise InvalidHeader('Invalid header length: {}'.format(len(s)))
     h = {}
     h['version'] = int.from_bytes(s[0:4], byteorder='little')
@@ -89,7 +128,9 @@ def hash_header(header: Optional[dict]) -> str:
 
 def hash_raw_header(header: bytes) -> str:
     assert isinstance(header, bytes)
-    return hash_encode(sha256d(header))
+    if blake.is_header_v2(header):
+        return blake.hash_raw_header_v2(header[:blake.HEADER_V2_SIZE])
+    return hash_encode(sha256d(header[:LEGACY_HEADER_SIZE]))
 
 
 pow_hash_header = hash_header
@@ -371,6 +412,20 @@ class Blockchain(Logger):
             raise InvalidHeader("hash mismatches with expected: {} vs {}".format(expected_header_hash, _hash))
         if prev_hash != header.get('prev_block_hash'):
             raise InvalidHeader("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
+        # BLAKE2b fork: v2 headers are required from the fork height on, and
+        # forbidden before it. This is what keeps us off the SHA256d chain.
+        is_v2 = bool(header['version'] & blake.VERSION_HEADER_V2_FLAG)
+        fork_height = constants.net.FORK_HEIGHT
+        height = header.get('block_height')
+        if fork_height is not None and height is not None:
+            if height >= fork_height and not is_v2:
+                raise InvalidHeader(f"legacy header at height {height}, expected header v2 after fork")
+            if height < fork_height and is_v2:
+                raise InvalidHeader(f"header v2 at height {height}, before fork height {fork_height}")
+            if is_v2 and header['height'] != height:
+                raise InvalidHeader(f"header v2 claims height {header['height']} at height {height}")
+        elif is_v2:
+            raise InvalidHeader("header v2 on a chain without a fork height")
         if constants.net.TESTNET:
             return
         bits = cls.target_to_bits(target)
@@ -382,17 +437,16 @@ class Blockchain(Logger):
             raise InvalidHeader(f"insufficient proof of work: {pow_hash_as_num} vs target {target}")
 
     def verify_chunk(self, index: int, data: bytes) -> None:
-        num = len(data) // HEADER_SIZE
+        headers = split_headers(data)
         start_height = index * CHUNK_SIZE
         prev_hash = self.get_hash(start_height - 1)
         target = self.get_target(index-1)
-        for i in range(num):
+        for i, raw_header in enumerate(headers):
             height = start_height + i
             try:
                 expected_header_hash = self.get_hash(height)
             except MissingHeader:
                 expected_header_hash = None
-            raw_header = data[i*HEADER_SIZE : (i+1)*HEADER_SIZE]
             header = deserialize_header(raw_header, index*CHUNK_SIZE + i)
             self.verify_header(header, prev_hash, target, expected_header_hash)
             prev_hash = hash_header(header)
@@ -522,7 +576,7 @@ class Blockchain(Logger):
     @with_lock
     def save_header(self, header: dict) -> None:
         delta = header.get('block_height') - self.forkpoint
-        data = serialize_header(header)
+        data = serialize_header_slot(header)
         # headers are only _appended_ to the end:
         assert delta == self.size(), (delta, self.size())
         assert len(data) == HEADER_SIZE
@@ -714,7 +768,7 @@ class Blockchain(Logger):
         assert idx >= 0, idx
         try:
             self.verify_chunk(idx, data)
-            self.save_chunk(idx, data)
+            self.save_chunk(idx, headers_to_slots(split_headers(data)))
             return True
         except BaseException as e:
             self.logger.info(f'verify_chunk idx {idx} failed: {repr(e)}')

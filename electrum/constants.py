@@ -56,9 +56,9 @@ def create_fallback_node_list(fallback_nodes_dict: dict[str, dict]) -> List[LNPe
     return fallback_nodes
 
 
-GIT_REPO_URL = "https://github.com/spesmilo/electrum"
-GIT_REPO_ISSUES_URL = "https://github.com/spesmilo/electrum/issues"
-RELEASE_NOTES_URL = "https://raw.githubusercontent.com/spesmilo/electrum/refs/heads/master/RELEASE-NOTES"
+GIT_REPO_URL = "https://github.com/bitcoin-blake/electrum-xbt"
+GIT_REPO_ISSUES_URL = "https://github.com/bitcoin-blake/electrum-xbt/issues"
+RELEASE_NOTES_URL = "https://raw.githubusercontent.com/bitcoin-blake/electrum-xbt/refs/heads/master/RELEASE-NOTES"
 BIP39_WALLET_FORMATS = read_json('bip39_wallet_formats.json')
 
 
@@ -73,6 +73,9 @@ class AbstractNet:
     BOLT11_HRP: str
     GENESIS: str
     BLOCK_HEIGHT_FIRST_LIGHTNING_CHANNELS: int = 0
+    # Bitcoin BLAKE2b hardfork (Knots v29.4.1.knots20260508, knots#359): first
+    # height whose header is v2 (164 bytes, BLAKE2b hash). None = no fork.
+    FORK_HEIGHT: Optional[int] = None
     BIP44_COIN_TYPE: int
     LN_REALM_BYTE: int
     DEFAULT_PORTS: Mapping[str, str]
@@ -155,6 +158,7 @@ class BitcoinMainnet(AbstractNet):
     GENESIS = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
     DEFAULT_PORTS = {'t': '50001', 's': '50002'}
     BLOCK_HEIGHT_FIRST_LIGHTNING_CHANNELS = 497000
+    FORK_HEIGHT = 961640
 
     XPRV_HEADERS = {
         'standard':    0x0488ade4,  # xprv
@@ -225,6 +229,7 @@ class BitcoinTestnet4(BitcoinTestnet):
 
     NET_NAME = "testnet4"
     GENESIS = "00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043"
+    FORK_HEIGHT = 150308
     LN_DNS_SEEDS = []
 
 
