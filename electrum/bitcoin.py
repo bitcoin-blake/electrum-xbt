@@ -43,6 +43,33 @@ if TYPE_CHECKING:
 ################################## transactions
 
 COINBASE_MATURITY = 100
+
+
+def coinbase_maturity_heights(block_height: int) -> Tuple[int, int]:
+    """Earliest block heights at which a coinbase mined in `block_height` can be
+    spent: (by consensus, by node policy). Same rules as the blake web wallet.
+    Knots PR 419: in the window [start, release) a coinbase mined at or after
+    `start` needs `depth` confirmations by consensus; once the window closes
+    only 100 are asked again. Policy asks `depth` of every coinbase, whenever
+    it was mined, and policy is what decides whether a node relays the spend.
+    """
+    from . import constants
+    std = block_height + COINBASE_MATURITY
+    params = constants.net.LONG_COINBASE_MATURITY
+    if params is None:
+        return std, std
+    start, release, depth = params
+    policy_at = block_height + depth
+    if block_height < start:
+        return std, policy_at
+    consensus_at = min(block_height + depth, max(release, std))
+    return consensus_at, policy_at
+
+
+def coinbase_spendable_height(block_height: int) -> int:
+    """The height of the first block that can carry a spend of this coinbase
+    and have it relayed, i.e. the policy maturity."""
+    return coinbase_maturity_heights(block_height)[1]
 COIN = 100000000
 TOTAL_COIN_SUPPLY_LIMIT_IN_BTC = 21000000
 

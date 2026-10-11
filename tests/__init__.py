@@ -37,6 +37,9 @@ class ElectrumTestCase(unittest.IsolatedAsyncioTestCase, Logger):
 
     TESTNET = False  # there is also an @as_testnet decorator to run single tests in testnet mode
     REGTEST = False
+    # Electrum-XBT signs with SIGHASH_UNIFIED by default. Upstream fixtures were
+    # signed with the legacy sighash, so tests run legacy unless they opt in.
+    UNIFIED_SIGHASH = False
     TEST_ANCHOR_CHANNELS = True
     TIME_STEP = 0.01
     WALLET_FILES_DIR = os.path.join(os.path.dirname(__file__), "test_storage_upgrade")
@@ -57,12 +60,18 @@ class ElectrumTestCase(unittest.IsolatedAsyncioTestCase, Logger):
             constants.BitcoinRegtest.set_as_network()
         elif cls.TESTNET:
             constants.BitcoinTestnet.set_as_network()
+        from electrum import transaction
+        cls._saved_default_sighash = transaction.DEFAULT_SIGHASH
+        if not cls.UNIFIED_SIGHASH:
+            transaction.DEFAULT_SIGHASH = transaction.Sighash.ALL
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
         if cls.TESTNET or cls.REGTEST:
             constants.BitcoinMainnet.set_as_network()
+        from electrum import transaction
+        transaction.DEFAULT_SIGHASH = cls._saved_default_sighash
 
     def setUp(self):
         have_lock = self._test_lock.acquire(timeout=0.1)

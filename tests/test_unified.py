@@ -52,6 +52,7 @@ class TestUnifiedSighash(ElectrumTestCase):
 
 class TestUnifiedSigning(ElectrumTestCase):
     """sign_txin opts in by default and the signature verifies against the unified digest."""
+    UNIFIED_SIGHASH = True
 
     def _funding_tx(self, address: str, value: int) -> Transaction:
         dummy = PartialTxInput(prevout=TxOutpoint(txid=bytes(32), out_idx=0))

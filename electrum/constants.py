@@ -76,6 +76,11 @@ class AbstractNet:
     # Bitcoin BLAKE2b hardfork (Knots v29.4.1.knots20260508, knots#359): first
     # height whose header is v2 (164 bytes, BLAKE2b hash). None = no fork.
     FORK_HEIGHT: Optional[int] = None
+    # Knots PR 419 long coinbase maturity: (start, release, depth). Coinbases
+    # mined at or after `start` in blocks before `release` need `depth`
+    # confirmations by consensus; node policy and the Knots wallet apply
+    # `depth` to every coinbase. None = plain 100-block maturity.
+    LONG_COINBASE_MATURITY: Optional[Tuple[int, int, int]] = None
     BIP44_COIN_TYPE: int
     LN_REALM_BYTE: int
     DEFAULT_PORTS: Mapping[str, str]
@@ -159,6 +164,7 @@ class BitcoinMainnet(AbstractNet):
     DEFAULT_PORTS = {'t': '50001', 's': '50002'}
     BLOCK_HEIGHT_FIRST_LIGHTNING_CHANNELS = 497000
     FORK_HEIGHT = 961640
+    LONG_COINBASE_MATURITY = (973440, 979920, 6480)
 
     XPRV_HEADERS = {
         'standard':    0x0488ade4,  # xprv
@@ -230,6 +236,7 @@ class BitcoinTestnet4(BitcoinTestnet):
     NET_NAME = "testnet4"
     GENESIS = "00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043"
     FORK_HEIGHT = 150308
+    LONG_COINBASE_MATURITY = (151406, 158111, 6705)
     LN_DNS_SEEDS = []
 
 
