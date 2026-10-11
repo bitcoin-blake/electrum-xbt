@@ -50,3 +50,4 @@ electrum/*.so.*
 electrum/*.dll
 electrum/*.dylib
 contrib/osx/*.dylib
+/Electrum_XBT.egg-info/

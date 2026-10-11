@@ -67,7 +67,7 @@ from electrum.transaction import (Transaction, PartialTxInput, TxOutput,
 from electrum.wallet import (Multisig_Wallet, Abstract_Wallet,
                              sweep_preparations, InternalAddressCorruption,
                              CannotCPFP)
-from electrum.version import ELECTRUM_VERSION
+from electrum.version import ELECTRUM_VERSION, XBT_RELEASE
 from electrum.network import Network, UntrustedServerReturnedError
 from electrum.exchange_rate import FxThread
 from electrum.simple_config import SimpleConfig
@@ -629,7 +629,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
         name = "Electrum-XBT"
         if constants.net.TESTNET:
             name += " " + constants.net.NET_NAME.capitalize()
-        return f"{name} {ELECTRUM_VERSION}"
+        return f"{name} {ELECTRUM_VERSION}-{XBT_RELEASE}"
 
     def watching_only_changed(self):
         name_and_version = self.get_app_name_and_version_str()
@@ -875,7 +875,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
 
     def show_about(self):
         QMessageBox.about(self, "Electrum-XBT",
-                          (_("Version")+" %s" % ELECTRUM_VERSION + "\n\n" +
+                          (_("Version")+" %s-%s" % (ELECTRUM_VERSION, XBT_RELEASE) + "\n\n" +
                            _("Electrum-XBT is Electrum for the Bitcoin BLAKE2b chain: it verifies the chain's "
                              "164-byte BLAKE2b headers and signs with the replay-protected unified sighash.") + "\n\n" +
                            _("Electrum's focus is speed, with low resource usage and simplifying Bitcoin.") + " " +

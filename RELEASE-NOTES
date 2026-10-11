@@ -1,3 +1,21 @@
+# Electrum-XBT release 4.8.2-xbt.1 (October 11, 2026) (testnet4 only)
+ * First release of Electrum-XBT, Electrum 4.8.2 for the Bitcoin BLAKE2b chain.
+ * Headers: 164-byte header v2 decoded and hashed with BLAKE2b (electrum/blake.py),
+   checked against Knots' block_header_v2.json. Header v2 is required at and
+   above the fork height and refused below it.
+ * Mainnet proof of work: Knots' 22-bit target shift at the fork block and
+   retargets from the shifted bits, verified on real mainnet chunk 477.
+ * Signatures: every spend uses SIGHASH_UNIFIED (0x21), the chain's replay-
+   protected sighash, implemented for all four script types and checked
+   against Knots' 166 vectors (electrum/unified.py).
+ * Coinbase maturity per Knots PR 419 (6,480 blocks mainnet, 6,705 testnet4).
+ * Units XBT / mXBT / bits / sat; fee hints sized for a chain at 1 sat/vB.
+ * Public testnet4 server melvin.me:51002 (TLS) in the default list.
+ * Mainnet is wired but off: empty server list until a public server exists
+   and a first spend has been made. Hardware wallets cannot sign the unified
+   sighash. Lightning is untested on this chain.
+ * Own data directory ~/.electrum-xbt and command `electrum-xbt`.
+
 # Release 4.8.2 (September 11, 2026) (security update)
  * Security fixes for reports received from:
    - l0rinc

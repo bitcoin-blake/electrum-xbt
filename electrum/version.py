@@ -1,4 +1,5 @@
-ELECTRUM_VERSION = '4.8.2'       # version of the client package
+ELECTRUM_VERSION = '4.8.2'       # version of the client package (upstream Electrum this fork is based on)
+XBT_RELEASE = 'xbt.1'            # Electrum-XBT release on top of it; shown as 4.8.2-xbt.1
 
 PROTOCOL_VERSION_MIN = '1.4'     # electrum protocol
 PROTOCOL_VERSION_MAX = '1.6'
