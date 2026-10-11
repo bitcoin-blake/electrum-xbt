@@ -56,7 +56,7 @@ extras_require['fast'] = extras_require['crypto']
 
 
 setup(
-    name="Electrum",
+    name="Electrum-XBT",
     version=version.ELECTRUM_VERSION,
     python_requires='>={}'.format(MIN_PYTHON_VERSION),
     install_requires=requirements,

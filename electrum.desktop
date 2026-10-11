@@ -3,13 +3,13 @@
 # Note: This assumes $HOME/.local/bin is in your $PATH
 
 [Desktop Entry]
-Comment=Lightweight Bitcoin Client
-Exec=electrum %u
+Comment=Lightweight wallet for the Bitcoin BLAKE2b chain
+Exec=electrum-xbt %u
 GenericName[en_US]=Bitcoin Wallet
 GenericName=Bitcoin Wallet
 Icon=electrum
-Name[en_US]=Electrum Bitcoin Wallet
-Name=Electrum Bitcoin Wallet
+Name[en_US]=Electrum-XBT Wallet
+Name=Electrum-XBT Wallet
 Categories=Finance;Network;
 StartupNotify=true
 StartupWMClass=electrum

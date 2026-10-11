@@ -297,12 +297,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
 
         self.contacts.fetch_openalias(self.config)
 
-        # If the option hasn't been set yet
+        # Electrum-XBT: the update check would point at electrum.org, which is not this wallet.
         if not config.cv.AUTOMATIC_CENTRALIZED_UPDATE_CHECKS.is_set():
-            choice = self.question(title="Electrum - " + _("Enable update check"),
-                                   msg=_("For security reasons we advise that you always use the latest version of Electrum.") + " " +
-                                       _("Would you like to be notified when there is a newer version of Electrum available?"))
-            config.AUTOMATIC_CENTRALIZED_UPDATE_CHECKS = bool(choice)
+            config.AUTOMATIC_CENTRALIZED_UPDATE_CHECKS = False
 
         self._update_check_thread = None
         if config.AUTOMATIC_CENTRALIZED_UPDATE_CHECKS:
@@ -629,7 +626,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
 
     @classmethod
     def get_app_name_and_version_str(cls) -> str:
-        name = "Electrum"
+        name = "Electrum-XBT"
         if constants.net.TESTNET:
             name += " " + constants.net.NET_NAME.capitalize()
         return f"{name} {ELECTRUM_VERSION}"
@@ -825,7 +822,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
             # Hence, this menu item will be at a "uniform location re macOS processes"
             preferences_action.setMenuRole(QAction.MenuRole.PreferencesRole)  # make sure OS recognizes it as preferences
             # Add another preferences item, to also have a "uniform location for Electrum between different OSes"
-            self.tools_menu.addAction(_("Electrum preferences"), self.settings_dialog)
+            self.tools_menu.addAction(_("Electrum-XBT preferences"), self.settings_dialog)
 
         self.tools_menu.addAction(_("&Network"), self.gui_object.show_network_dialog).setEnabled(bool(self.network))
         self.tools_menu.addAction(_("&Plugins"), self.gui_object.show_plugins_dialog)
@@ -877,8 +874,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
             self.show_error(_('No donation address for this server'))
 
     def show_about(self):
-        QMessageBox.about(self, "Electrum",
+        QMessageBox.about(self, "Electrum-XBT",
                           (_("Version")+" %s" % ELECTRUM_VERSION + "\n\n" +
+                           _("Electrum-XBT is Electrum for the Bitcoin BLAKE2b chain: it verifies the chain's "
+                             "164-byte BLAKE2b headers and signs with the replay-protected unified sighash.") + "\n\n" +
                            _("Electrum's focus is speed, with low resource usage and simplifying Bitcoin.") + " " +
                            _("You do not need to perform regular backups, because your wallet can be "
                               "recovered from a secret phrase that you can memorize or write on paper.") + " " +
@@ -917,7 +916,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
             _("Before reporting a bug, upgrade to the most recent version of Electrum (latest release or git HEAD), and include the version number in your report."),
             _("Try to explain not only what the bug is, but how it occurs.")
          ])
-        self.show_message(msg, title="Electrum - " + _("Reporting Bugs"), rich_text=True)
+        self.show_message(msg, title="Electrum-XBT - " + _("Reporting Bugs"), rich_text=True)
 
     def notify_transactions(self):
         if self.tx_notification_queue.qsize() == 0:
@@ -942,7 +941,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
 
     def notify(self, message):
         if self.tray:
-            self.tray.showMessage("Electrum", message, read_QIcon("electrum_dark_icon"), 20000)
+            self.tray.showMessage("Electrum-XBT", message, read_QIcon("electrum_dark_icon"), 20000)
 
     def timer_actions(self):
         # refresh invoices and requests because they show ETA

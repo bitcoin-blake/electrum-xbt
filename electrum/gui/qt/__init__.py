@@ -181,7 +181,7 @@ class ElectrumGui(BaseElectrumGui, Logger):
             QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
         if hasattr(QGuiApplication, 'setDesktopFileName'):
             QGuiApplication.setDesktopFileName('electrum')
-        QGuiApplication.setApplicationName("Electrum")
+        QGuiApplication.setApplicationName("Electrum-XBT")
         self.gui_thread = threading.current_thread()
         self.windows = []  # type: List[ElectrumWindow]
         self.open_file_efilter = OpenFileEventFilter(self.windows)
@@ -214,7 +214,7 @@ class ElectrumGui(BaseElectrumGui, Logger):
 
     def _init_tray(self):
         self.tray = QSystemTrayIcon(self.tray_icon(), None)
-        self.tray.setToolTip('Electrum')
+        self.tray.setToolTip('Electrum-XBT')
         self.tray.activated.connect(self.tray_activated)
         self.build_tray_menu()
         self.tray.show()
@@ -658,7 +658,7 @@ def standalone_exception_dialog(exception: Union[str, BaseException]) -> None:
 
     msg_box = QMessageBox()
     msg_box.setTextFormat(Qt.TextFormat.PlainText)
-    msg_box.setWindowTitle(_("Error starting Electrum"))
+    msg_box.setWindowTitle(_("Error starting Electrum-XBT"))
     msg_box.setIcon(QMessageBox.Icon.Critical)
     msg_box.setText(_("An error occurred") + ":")
     msg_box.setInformativeText(str(exception))
