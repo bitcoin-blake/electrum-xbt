@@ -3468,7 +3468,7 @@ class Abstract_Wallet(ABC, Logger, EventListener):
         rl = TxSighashRiskLevel
         short_message = _("Warning") + ": " + _("The fee could not be verified!")
         # check that all inputs use SIGHASH_ALL
-        if not all(txin.sighash in (None, Sighash.ALL) for txin in tx.inputs()):
+        if not all(txin.sighash in (None, Sighash.ALL, Sighash.ALL | Sighash.UNIFIED) for txin in tx.inputs()):
             messages = [(_("Warning") + ": "
                          + _("Some inputs use non-default sighash flags, which might affect the fee."))]
             return TxSighashDanger(risk_level=rl.FEE_WARNING_NEEDCONFIRM, short_message=short_message, messages=messages)
@@ -3516,12 +3516,12 @@ class Abstract_Wallet(ABC, Logger, EventListener):
         }
         sighash_danger = TxSighashDanger()
         for txin_idx, txin in enumerate(tx.inputs()):
-            if txin.sighash in (None, Sighash.ALL):
-                continue  # None will get converted to Sighash.ALL, so these values are safe
+            if txin.sighash in (None, Sighash.ALL, Sighash.ALL | Sighash.UNIFIED):
+                continue  # None will get converted to the default sighash, so these values are safe
             # found interesting sighash flag
             addr = self.adb.get_txin_address(txin)
             if self.is_mine(addr):
-                sh_base = txin.sighash & (Sighash.ANYONECANPAY ^ 0xff)
+                sh_base = txin.sighash & (Sighash.ANYONECANPAY ^ 0xff) & ~Sighash.UNIFIED
                 sh_acp = txin.sighash & Sighash.ANYONECANPAY
                 for sh in [sh_base, sh_acp]:
                     try:

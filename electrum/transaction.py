@@ -50,6 +50,7 @@ from .bitcoin import (
     taproot_tweak_seckey
 )
 from .crypto import sha256d, sha256
+from . import unified
 from .logging import get_logger
 from .util import ShortID, OldTaskGroup, TxMinedInfo
 from .descriptor import Descriptor, MissingSolutionPiece, create_dummy_descriptor_from_address, DUMMY_DER_SIG
@@ -109,6 +110,7 @@ class Sighash(IntEnum):
     ALL = 1
     NONE = 2
     SINGLE = 3
+    UNIFIED = 0x20  # BLAKE2b chain: opt in to the unified sighash (see unified.py)
     ANYONECANPAY = 0x80
 
     @classmethod
@@ -117,9 +119,15 @@ class Sighash(IntEnum):
             0x01, 0x02, 0x03,
             0x81, 0x82, 0x83,
         }
+        if sighash & Sighash.UNIFIED:
+            return (sighash & ~Sighash.UNIFIED) in valid_flags
         if is_taproot:
             valid_flags.add(0x00)
         return sighash in valid_flags
+
+    @classmethod
+    def is_unified(cls, sighash: Optional[int]) -> bool:
+        return sighash is not None and bool(sighash & Sighash.UNIFIED)
 
     @classmethod
     def to_sigbytes(cls, sighash: int) -> bytes:
@@ -268,11 +276,24 @@ class BIP341SharedTxDigestFields(NamedTuple):  # witness v1
         )
 
 
+# What sign_txin() uses when the input does not say. On the BLAKE2b chain every
+# signature opts in to the unified sighash: it is what the Knots wallet does and
+# it is what makes the signature impossible to replay on the SHA256d chain.
+DEFAULT_SIGHASH = Sighash.ALL | Sighash.UNIFIED
+
+
 class SighashCache:
 
     def __init__(self):
         self._witver0 = None  # type: Optional[BIP143SharedTxDigestFields]
         self._witver1 = None  # type: Optional[BIP341SharedTxDigestFields]
+
+    def get_unified_data_for_tx(self, tx: 'Transaction') -> unified.UnifiedTxDigestFields:
+        # the unified aggregates are BIP341's
+        d = self.get_witver1_data_for_tx(tx)
+        return unified.UnifiedTxDigestFields(
+            sha_prevouts=d.sha_prevouts, sha_amounts=d.sha_amounts, sha_scripts=d.sha_scriptpubkeys,
+            sha_sequences=d.sha_sequences, sha_outputs=d.sha_outputs)
 
     def get_witver0_data_for_tx(self, tx: 'Transaction') -> BIP143SharedTxDigestFields:
         if self._witver0 is None:
@@ -1071,6 +1092,8 @@ class Transaction:
         assert sighash is not None
         if not Sighash.is_valid(sighash, is_taproot=txin.is_taproot()):
             raise Exception(f"SIGHASH_FLAG ({sighash}) not supported!")
+        if Sighash.is_unified(sighash):
+            raise Exception("SIGHASH_UNIFIED has no preimage to double-SHA256; use sighash_digest()")
         if sighash_cache is None:
             sighash_cache = SighashCache()
         if txin.is_segwit():
@@ -1149,6 +1172,65 @@ class Transaction:
             return preimage
         raise Exception("should not reach this")
 
+    def unified_sighash_digest(
+        self,
+        txin_index: int,
+        *,
+        sighash: int,
+        sighash_cache: SighashCache | None = None,
+    ) -> bytes:
+        """The digest an opted-in (SIGHASH_UNIFIED) signature over input txin_index commits to."""
+        inputs = self.inputs()
+        txin = inputs[txin_index]
+        if not Sighash.is_unified(sighash):
+            raise Exception(f"sighash {sighash:#x} does not opt in to SIGHASH_UNIFIED")
+        if not Sighash.is_valid(sighash, is_taproot=txin.is_taproot()):
+            raise Exception(f"SIGHASH_FLAG ({sighash}) not supported!")
+        if sighash_cache is None:
+            sighash_cache = SighashCache()
+        for i in inputs:
+            if i.scriptpubkey is None or i.value_sats() is None:
+                raise Exception("SIGHASH_UNIFIED commits to the value and scriptPubKey of every spent output; "
+                                f"missing for input {i.prevout.to_str()}")
+        if txin.is_taproot():
+            script_type = unified.SCRIPT_TYPE_TAPROOT  # key path; tapscript spends are not supported
+            script_code = b''
+        elif txin.is_segwit():
+            script_type = unified.SCRIPT_TYPE_WITNESS_V0
+            script_code = txin.get_scriptcode_for_sighash()
+        else:
+            script_type = unified.SCRIPT_TYPE_LEGACY
+            script_code = txin.get_scriptcode_for_sighash()
+        return unified.unified_sighash(
+            version=self.version, locktime=self.locktime,
+            prevouts=[i.prevout.serialize_to_network() for i in inputs],
+            sequences=[i.nsequence for i in inputs],
+            spent_outputs=[(i.value_sats(), i.scriptpubkey) for i in inputs],
+            outputs=[o.serialize_to_network() for o in self.outputs()],
+            in_idx=txin_index, hash_type=sighash, script_type=script_type, script_code=script_code,
+            shared=sighash_cache.get_unified_data_for_tx(self),
+        )
+
+    def sighash_digest(
+        self,
+        txin_index: int,
+        *,
+        sighash: Optional[int] = None,
+        sighash_cache: SighashCache | None = None,
+    ) -> bytes:
+        """The 32-byte message a signature over input txin_index signs, for any sighash type."""
+        txin = self.inputs()[txin_index]
+        if sighash is None and isinstance(txin, PartialTxInput):
+            sighash = txin.sighash
+        if sighash is None:
+            sighash = DEFAULT_SIGHASH
+        if Sighash.is_unified(sighash):
+            return self.unified_sighash_digest(txin_index, sighash=sighash, sighash_cache=sighash_cache)
+        pre_hash = self.serialize_preimage(txin_index, sighash=sighash, sighash_cache=sighash_cache)
+        if txin.is_taproot():
+            return bip340_tagged_hash(b"TapSighash", pre_hash)
+        return sha256d(pre_hash)
+
     def verify_sig_for_txin(
         self,
         *,
@@ -1162,9 +1244,8 @@ class Transaction:
             raise Exception("not implemented")  # TODO
         else:
             der_sig, sighash = sig[:-1], sig[-1]
-            pre_hash = self.serialize_preimage(txin_index, sighash=sighash, sighash_cache=sighash_cache)
+            msg_hash = self.sighash_digest(txin_index, sighash=sighash, sighash_cache=sighash_cache)
             pubkey = ecc.ECPubkey(pubkey_bytes)
-            msg_hash = sha256d(pre_hash)
             sig64 = ecc.ecdsa_sig64_from_der_sig(der_sig)
             return pubkey.ecdsa_verify(sig64, msg_hash)
 
@@ -2532,20 +2613,17 @@ class PartialTransaction(Transaction):
     ) -> bytes:
         txin = self.inputs()[txin_index]
         txin.validate_data(for_signing=True)
-        pre_hash = self.serialize_preimage(txin_index, sighash_cache=sighash_cache)
+        sighash = txin.sighash if txin.sighash is not None else DEFAULT_SIGHASH
+        msg_hash = self.sighash_digest(txin_index, sighash=sighash, sighash_cache=sighash_cache)
         if txin.is_taproot():
             # note: privkey_bytes is the internal key
             merkle_root = txin.tap_merkle_root or bytes()
             output_privkey_bytes = taproot_tweak_seckey(privkey_bytes, merkle_root)
             output_privkey = ecc.ECPrivkey(output_privkey_bytes)
-            msg_hash = bip340_tagged_hash(b"TapSighash", pre_hash)
             sig = output_privkey.schnorr_sign(msg_hash)
-            sighash = txin.sighash if txin.sighash is not None else Sighash.DEFAULT
         else:
             privkey = ecc.ECPrivkey(privkey_bytes)
-            msg_hash = sha256d(pre_hash)
             sig = privkey.ecdsa_sign(msg_hash, sigencode=ecc.ecdsa_der_sig_from_r_and_s)
-            sighash = txin.sighash if txin.sighash is not None else Sighash.ALL
         return sig + Sighash.to_sigbytes(sighash)
 
     def is_complete(self) -> bool:

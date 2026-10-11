@@ -914,6 +914,7 @@ class TestTransactionTestnet(ElectrumTestCase):
         prevout = TxOutpoint(txid=bfh('6d500966f9e494b38a04545f0cea35fc7b3944e341a64b804fed71cdee11d434'), out_idx=1)
         txin = PartialTxInput(prevout=prevout)
         txin.nsequence = 2 ** 32 - 3
+        txin.sighash = Sighash.ALL  # legacy sighash: this input carries no spent-output data
         redeem_script = construct_script([
             locktime, opcodes.OP_CHECKLOCKTIMEVERIFY, opcodes.OP_DROP, pubkey, opcodes.OP_CHECKSIG,
         ])
@@ -950,6 +951,7 @@ class TestTransactionTestnet(ElectrumTestCase):
         prevout = TxOutpoint(txid=bfh('8680971efd5203025cffe746f8598d0a704fae81f236ffe009c2609ec673d59a'), out_idx=0)
         txin = PartialTxInput(prevout=prevout)
         txin._trusted_value_sats = sats
+        txin.sighash = Sighash.ALL  # legacy sighash: this input carries no spent scriptPubKey
         txin.nsequence = 0
         txin.script_sig = b''
         txin.witness_script = witness_script
