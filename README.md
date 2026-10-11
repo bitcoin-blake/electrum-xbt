@@ -33,8 +33,8 @@ until a public server exists, so `electrum-xbt` on mainnet will not connect.
 ## Run from source (testnet4)
 
 You need a server that speaks the Electrum protocol for the BLAKE2b chain.
-[electrs on the blake2b branch](https://github.com/jasonsopko/electrs) works
-against a Knots or Plumb node.
+[bitcoin-blake/electrs](https://github.com/bitcoin-blake/electrs) (branch `blake2b`,
+a fork of jasonsopko/electrs) works against a Knots or Plumb node.
 
 ```
 python3 -m venv .venv
