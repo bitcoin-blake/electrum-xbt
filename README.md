@@ -32,15 +32,23 @@ until a public server exists, so `electrum-xbt` on mainnet will not connect.
 
 ## Run from source (testnet4)
 
-You need a server that speaks the Electrum protocol for the BLAKE2b chain.
-[bitcoin-blake/electrs](https://github.com/bitcoin-blake/electrs) (branch `blake2b`,
-a fork of jasonsopko/electrs) works against a Knots or Plumb node.
+A public server for the BLAKE2b testnet4 is in the default list
+(`melvin.me`, TLS on 51002, plain on 51001), so a fresh install connects on
+its own. To run your own, [bitcoin-blake/electrs](https://github.com/bitcoin-blake/electrs)
+(branch `blake2b`, a fork of jasonsopko/electrs) works against a Knots or
+Plumb node; then start with `-1 -s 127.0.0.1:50001:t`.
 
 ```
 python3 -m venv .venv
 .venv/bin/pip install -e .
 .venv/bin/pip install cryptography pyqt6
-.venv/bin/python run_electrum --testnet4 daemon -d -1 -s 127.0.0.1:50001:t
+.venv/bin/python run_electrum --testnet4
+```
+
+That opens the GUI. For the command line instead:
+
+```
+.venv/bin/python run_electrum --testnet4 daemon -d
 .venv/bin/python run_electrum --testnet4 create
 .venv/bin/python run_electrum --testnet4 load_wallet
 .venv/bin/python run_electrum --testnet4 getunusedaddress
@@ -49,8 +57,6 @@ python3 -m venv .venv
 `electrum_ecc` needs libsecp256k1. If the wheel does not build, set
 `ELECTRUM_ECC_DONT_COMPILE=1` and copy a `libsecp256k1.so` into the
 `electrum_ecc` package directory.
-
-For the GUI: `.venv/bin/python run_electrum --testnet4 -1 -s 127.0.0.1:50001:t`.
 
 ## Tests
 
